@@ -300,7 +300,57 @@ tar -zxvf kibana-7.17.4-linux-x86_64.tar.g
 
 ![](C:\Users\20220509\AppData\Roaming\marktext\images\2022-06-09-16-46-45-image.png)
 
+## 安装Head插件
 
+#### 安装依赖
+
+1. 安装node
+   
+   #### 下载
+   
+   wget https://nodejs.org/dist/v14.15.4/node-v14.15.4-linux-x64.tar.xz
+   
+   或者
+   
+   使用浏览器下载，再传到服务器
+   
+   #### 解压
+   
+   tar -xf node-v14.15.4-linux-x64.tar.xz
+   
+   #### 创建软连接
+   
+   cd /usr/bin 
+   
+   ln -s /usr/local/node/bin/node node
+   
+   ln -s /usr/local/node/bin/npm npm
+   
+   看node版本号：node -v
+
+2. 安装grunt:
+   
+   npm install -g grunt-cli
+   
+   创建软链：ln -s /usr/local/node/bin/grunt grunt
+   
+   输入：grunt -version命令检查是否安装成功
+
+#### 安装elasticsearch-head
+
+1. [GitHub - mobz/elasticsearch-head: A web front end for an elastic search cluster](https://github.com/mobz/elasticsearch-head)
+
+2. 解压
+
+3. 修改配置文件Gruntfile.js文件，添加hostname:"*"
+
+4. 安装： cd elasticsearch-head 
+   
+   npm install
+
+5. npm run start启动服务
+
+6. 访问地址：http://ip:9100
 
 ## Elasticsearch安装插件
 
@@ -441,19 +491,13 @@ PUT /es_db/_settings
 
 格式：GET /索引名称
 
-
-
 #### 索引是否存在
 
 格式：HEAD /索引名称
 
-
-
 #### 删除索引
 
 格式：DELETE /索引名称
-
-
 
 #### 打开索引
 
@@ -462,8 +506,6 @@ PUT /es_db/_settings
 #### 关闭索引
 
 格式：POST /es_db/_open
-
-
 
 ### 文档操作
 
@@ -492,8 +534,6 @@ GET /es_db/_search
 ```
 
 **注意：** POST和PUT都能起到创建/更新的作用，PUT需要对一个具体的资源进行操作也就是要确定id才能进行更新/创建，而POST是可以针对整个资源集合进行操作的，如果不写id就由ES生成一个唯一id进行创建新文档，如果填了那就针对这个id的文档进行创建/更新
-
-
 
 _create 是如果已经存在了id就会报错，不会进行修改 
 
@@ -547,19 +587,19 @@ POST /es_db/_update_by_query
   GET /es_db/_doc/1
   ```
 
--  条件查询search，格式：GET /索引名称/doc/_search
+- 条件查询search，格式：GET /索引名称/doc/_search
   
   ```bash
   # 查询前10条文档
   GET /es_db/_doc/_search
   {
-      "query":{
-          "term":{
-              "name": {
-                  "value": "张三"
-              }
-          }
-      }
+     "query":{
+         "term":{
+             "name": {
+                 "value": "张三"
+             }
+         }
+     }
   }
   ```
 
@@ -574,12 +614,12 @@ ES Search API 提供了两种条件查询搜索方式：
   
   #条件查询，如要查询age等于28岁的_search?q=*:***
   GET /es_db/_doc/_search?q=age:28
-  
+  ```
   
   #泛微查询，如要查询age在25到26岁之间的_search?q=***[** TO **] 注意： TO必须大写
   GET /es_eb/_doc/_search?q=age[25 TO 26]
-  ```
 
+```
 #### 删除文档
 
 格式：DELETE /索引名称/_doc/id
@@ -780,8 +820,6 @@ from关键字：用来指定起始返回位置，和size关键字连用可实现
 
 答案：最大不能超过10000
 
-
-
 #### 分页查询Scroll
 
 改动index.max_result_window参数值的大小，只能解决一时的问题，当索引的数据量持续增长时，在查询全量数据时还是会出现问题。而且会增加ES服务器内存大结果集消耗完的风险。最佳实践还是根据异常提示中的采用scroll api更高效的请求大量数据集。
@@ -794,5 +832,360 @@ GET /es_db/_search?scroll=1m
 {
     "query": { "match_all": {} },
     "size": 1000
+}
+```
+
+多次根据scroll_id游标查询，直到没有数据返回则结束查询。采用游标查询索引全量数据，更安全高效，限制了单次对内存的消耗。
+
+#### 指定字段排序
+
+注意：会让得分失效
+
+```json
+GET /es_db/_search
+{
+    "query":{
+        "match_all":{}
+    },
+    "sort":[
+        {
+            "age":"desc"
+        }
+    ]
+}
+```
+
+#### match
+
+match在匹配时会对所查找的关键字进行分词，然后按照分词匹配查找
+
+match支持以下参数：
+
+- query：指定匹配的值
+
+- operator：匹配条件类型
+  
+  - and：条件分词后都要匹配
+  
+  - or：条件分词后有一个匹配即可（默认）
+
+- minmun_should_match: 最低匹配度，即条件在倒排索引中最低的匹配度
+
+```json
+GET /es_db/_search
+{
+  "query":{
+    "match": {
+      "name": {
+        "query":"张三1111",
+        "minimum_should_match":5
+
+      }
+    }
+  }
+}
+```
+
+#### 短语查询match_phrase
+
+match_phrase查询分析文本并根据分析的文本创建一个短语查询。match_phrase会将检索关键词分词。match_phrase的分词结果必须在被检索字段的分词中都包含，而且顺序必须相同，默认必须是连续的。
+
+如何解决词条间隔的问题？可以借助slop参数，slop参数告诉match_phrase查询词条能够相隔多远时仍然将文档是为匹配。
+
+#### 多字段查询multi_match
+
+可以根据字段类型，决定是否使用分词查询，得分最高排在最前面
+
+#### query_string
+
+允许我们在单个查询字符串中指定AND | OR | NOT条件，同时也和multi_match query一样，支持多字段搜索。和match类似，但是match需要指定字段名，query_string实在所有字段中搜索，范围广泛
+
+注意：查询字段分词就将查询条件分词查询，查询字段部分此将查询条件不分词查询
+
+```json
+#未指定字段查询
+GET /es_db/_search
+{
+  "query": {
+    "query_string": {
+      "query": "三"
+    }
+  }
+}
+
+# 指定单个字段查询
+GET /es_db/_search
+{
+  "query": {
+    "query_string": {
+      "default_field": "name", 
+      "query": "三"
+    }
+  }
+}
+```
+
+#### simiple_query_string
+
+类似query_string，但是会忽略错误的语法，同时只支持部分查询语法，不支持AND、OR、NOT，会当作字符串处理。用符号代替+代替AND | 代替OR -代替NOT
+
+#### 关键字（精确）查询term
+
+term用来使用关键词查询（精确匹配），还可以用来查询没有被进行分词的数据类型。term时表单语义的最小单位，搜索和利用统计语言模型进行自然语言处理都需要处理term。match在匹配时会对所查找的关键词进行分词，然后按分词匹配查找，而term会直接对关键词进行查找。一般模糊查找的时候，多用match，而精确查找时可以使用term。
+
+- ES中默认使用分词器为标准分词器，标准分词器对于英文单词分词，对于中文是单字分词
+
+- 在ES的Mapping Type中keyword、date、integer、long、double or ip 这些类型不分词，只有text类型分词。
+  
+  ```json
+  GET /es_db/_search
+  {
+    "query": {
+      "term": {
+        "name.keyword": {
+          "value": "张三xx"
+        }
+      }
+    }
+  }
+  ```
+
+可以通过constant score将查询结果转换成一个Filtering，避免算分，并利用缓存，提高性能。
+
+- 将query转换成filter，忽略TF-IDF计算，避免相关性算分的开销。
+
+- Filter可以有效利用缓存
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2022-06-15-16-13-00-image.png)
+
+#### prefix前缀搜索
+
+它会对分词后的term进行前缀搜索
+
+- 不会分析搜索字符串，传入的前缀就是想要查找的前缀
+
+- 默认状态下，前缀查询不做相关度分数计算，他只是将所有匹配的文档返回，然后赋予相关分数值为1。它的行为更像是一个过滤器而不是查询。两者实际的区别就是过滤器是被缓存的，而前缀查询不行。
+
+prefix的原理：要遍历所有倒排索引，并比较每个term是否是指定的前缀开头。
+
+#### 通配符查询wildcard
+
+通配符查询：工作原理和prefix相同，只不过他不是比较开头，它能支持更为复杂的匹配模式。
+
+#### 范围查询range
+
+- range: 范围关键字
+
+- gte: 大于等于
+
+- lte：小于等于
+
+- gt：大于
+
+- lt：小于
+
+- now：当前时间
+
+#### ids
+
+ids关键字：值为数组类型，用来根据一组id获取多个对应的文档
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2022-06-15-16-30-58-image.png)
+
+#### 模糊查询fuzzy
+
+在实际的搜索中，我们有时候会打错字，从而导致搜索不到。elasticsearch中，我们可以使用fuzziness属性来进行模糊查询，从而达到搜索错别字的情形。
+
+fuzzy查询会用到两个很重要的参数，fuzziness，prefix_length
+
+- fuziness：表示输入的关键字通过几次操作可以转换成为ES库里面的对应field的字段
+  
+  - 操作是指：新增一个字符，删除一个字符，修改一个字符，每次操作可以机组编辑距离为1。
+  
+  - 如中文集团到中为集团编辑距离就是1，只需要修改一个字符
+  
+  - 该参数默认值为0，即不开启模糊查询
+  
+  - 如果fuzziness值在这里设置成2，会把编辑距离为2的东东集团也查询出来
+
+- prefix_length:表示限制输入关键字和ES对应查询field的内容开头的第n个字符必须完全匹配，不允许错别字匹配
+  
+  - 如果这里等于1，则表示开头的字必须匹配，不匹配则不返回
+  
+  - 默认值也是0
+  
+  - 加大prefix_length的值可以提交效率和准确率
+
+注意：fuzzy模糊查询 最大模糊错误必须在0-2之间
+
+- 搜索关键字长度为2，不允许存在模糊查询
+
+- 搜索关键字长度为3-5，允许1次模糊
+
+- 搜索关键字长度大于5，允许最大2次模糊
+
+#### 高亮查询highlight
+
+highlight关键字：可以让符合条件的文档中的关键字高亮。
+
+highlight相关属性：
+
+- pre_tags前缀标签
+
+- post_tags后缀标签
+
+- tags_schema设置为styled可以使用内置高亮央视
+
+- require_field_match多字段高亮需要设置为false
+
+示例：
+
+```json
+GET /es_db/_search
+{
+  "query": {
+    "term": {
+      "name.keyword": {
+        "value": "张三xx"
+      }
+    }
+  },
+  "highlight": {
+    "fields": {
+      "*": {}
+    }
+  }
+}
+```
+
+```json
+GET /es_db/_search
+{
+  "query":{
+    "match": {
+      "name": {
+        "query":"张三",
+        "minimum_should_match":1
+
+      }
+    }
+  }, 
+  "highlight": {
+    "pre_tags": ["<span style='color:red'>"],
+    "post_tags": ["</span>"], 
+    "fields": {
+      "*":{}
+    }
+  }
+}
+
+
+#多字段完成高亮
+GET /es_db/_search
+{
+  "query":{
+    "match": {
+      "name": {
+        "query":"张三",
+        "minimum_should_match":1
+
+      }
+    }
+  }, 
+  "highlight": {
+    "pre_tags": ["<span style='color:red'>"],
+    "post_tags": ["</span>"], 
+    "require_field_match": "false", 
+    "fields": {
+      "*":{}
+    }
+  }
+}
+```
+
+#### 想关性和相关性算分
+
+搜索时用户和搜索引擎的对话，用户关心的时搜索结果的相关性
+
+- 是否可以找到所有相关的内容
+
+- 有多少不相关的内容被返回了
+
+- 文档的打分是否合理
+
+- 结合业务需求，平衡搜索排名
+
+如何衡量相关性
+
+- precision（查准率）尽可能返回较少的无关文档
+
+- Recall（查全率）尽量返回较多的相关文档
+
+- Ranking是否能够按照相关度进行排序
+
+##### 相关性(Relevance)
+
+搜索的相关性算分，描述了一个文档和查询语句匹配的程度。ES会对每个匹配查询条件的结果进行算分_score。
+
+打分的本质时排序，需要把最符合用户需求的文档排在前面。ES 5之前，默认的相关性算分采用TF-IDF，现在采用BM25.
+
+##### 什么是TF-IDF
+
+TF-IDF（term frequency-inverse document frequency）是一种用于信息检索与数据挖掘的常用加权技术。
+
+- TF-IDF被公认为是信息检索领域最重要的发明，除了在信息检索，在文献分类和其他相关领域也有着非常广泛的应用。
+
+- IDF的概念，最早是剑桥大学的“斯巴克.琼斯”提出
+  
+  - 1927年——“关键词特殊性的统计解释和它在文献检索中的应用”，但是没有从理论上解释IDF应该是用log（全部文档数/检索词出现过的文档总数），而不是其它函数，也没有做进一步的研究。
+  
+  - 1970年，1980年代撒尔顿和罗宾逊，进行了进一步的证明和研究，并用香农信息论做了证明
+
+- 现代搜索引擎，对TF-IDF进行了大量细微的优化
+
+#### 布尔查询bool Query
+
+一个bool查询是一个或者多个查询子句的组合，总共包括4种子句，其中2中会影响算分，2种不影响算分。
+
+- must: 相当于&&,必须匹配，贡献算分
+
+- should：相当于||, 选择性匹配，贡献算分
+
+- must_not： 相当于 ！，必须不能匹配，不贡献算分
+
+- filter：必须匹配，不贡献算法
+
+在Elasticsearch中，有Query和Filter两种不同的Context
+
+- Query Context：相关性算分
+
+- Filter Context：不需要算分（Yes or No），可以利用Cache，获得更好的性能
+
+相关性并不只是全文检索的专利，也适用于yes|no的字句，匹配的子句越多，相关性评分越高。如果多条查询子句被合并为一条符合查询语句，比如bool查询，则每个查询子句计算得出的的评分会被合并到总的相关性评分中。
+
+bool查询语法
+
+- 子查询可以任意顺序出现
+
+- 亏嵌套多个查询
+
+- 如果你的bool查询中，没有must条件，should中必须至少满足一条查询
+
+```json
+GET /es_db/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "term": {
+            "name": {
+              "value": "张三"
+            }
+          }
+        }
+      ]
+    }
+  }
 }
 ```
