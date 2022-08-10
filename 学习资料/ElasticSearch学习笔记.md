@@ -387,6 +387,14 @@ unzip elasticsearch-analysis-ik-8.2.0.zip -d ./ik-analysis
 
 删除压缩包，重启es
 
+## 倒排索引压缩算法
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2022-07-07-16-54-27-image.png)
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2022-07-07-17-26-55-image.png)
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2022-07-07-17-28-10-image.png)
+
 ## Elasticsearch索引
 
 在线文档地址：[Elasticsearch Guide [7.17] | Elastic](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/index.html)
