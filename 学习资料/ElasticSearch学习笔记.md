@@ -403,7 +403,7 @@ unzip elasticsearch-analysis-ik-8.2.0.zip -d ./ik-analysis
 
 ### 索引（Index）
 
->         一个索引就是一个拥有积分相似特征的文档的集合。比如说，可以有一个客户数据的索引，另一个产品目录索引，还有一个订单数据的索引。
+>         一个索引就是一个拥有几分相似特征的文档的集合。比如说，可以有一个客户数据的索引，有一个产品目录索引，还有一个订单数据的索引。
 > 
 >         一个索引由一个名字来标识（必须全是小写字母的），并且当我们要对对应于这个索引中的文档进行索引、搜索、更新和删除的时候，都要使用到这个名字。
 
@@ -466,6 +466,20 @@ POST /es_db/_doc/2?if_seq_no=2&if_primary_term=6
 
 如果版本号不一样就会修改失败
 
+#### 核心配置
+
+- network.host 即提供服务的ip地址，一般配置为本节点所在服务器的内网地址，此配置会导致节点由开发模式转为生产模式，从而触发引导检查。
+
+- network.publish_host: 即提供服务器的IP地址，一般配置为本节点所在服务器的公网地址。
+
+- http.port: 服务端口号，默认9200，通常范围9200--9299
+
+- transport.port: 节点通信端口，默认9300，通常范围9300——9399
+
+- discovery.seed_hosts: 此设置提供集群中其他候选节点的列表，并且可能处于活动状态且可以联系以播种发现过程。每个地址可以是IP地址，也可以是通过DNS解析为一个或多个IP地址的主机名。
+
+- cluster.initial_master_nodes:指定集群初次选举中用到的候选节点，称为集群引导，只在第一次形成集群时需要，如果配置了network.host，则此配置必须配置。重新启动节点或将新节点添加到现有集群时不要使用此配置。
+
 ### 索引操作
 
 #### 创建索引
@@ -509,11 +523,11 @@ PUT /es_db/_settings
 
 #### 打开索引
 
-格式：POST /es_db/_close
+格式：POST /es_db/_open
 
 #### 关闭索引
 
-格式：POST /es_db/_open
+格式：POST /es_db/_close
 
 ### 文档操作
 
@@ -625,9 +639,8 @@ ES Search API 提供了两种条件查询搜索方式：
   ```
   
   #泛微查询，如要查询age在25到26岁之间的_search?q=***[** TO **] 注意： TO必须大写
-  GET /es_eb/_doc/_search?q=age[25 TO 26]
+  GET /es_eb/_doc/_search?q=age[25 TO 26
 
-```
 #### 删除文档
 
 格式：DELETE /索引名称/_doc/id
@@ -729,6 +742,44 @@ GET _mget
         {"_index": "article","_id":4}
     ]
 }
+
+
+
+#mget 查询
+GET _mget
+{
+  "docs": [
+    {
+      "_index": "movies",
+      "_id": 12,
+      "_source": [
+        "name",
+        "price"
+      ]
+    },
+    {
+      "_index": "movies",
+      "_id": 10,
+      "_source": {
+        "exclude": [
+          "content",
+          "type"
+        ]
+      }
+    },
+    {
+      "_index":"good",
+      "_id":1
+    }
+  ]
+}
+
+# 简化查询
+
+GET movies/_mget
+{
+  "ids":[1,2,3]
+}
 ```
 
 _msearch
@@ -742,6 +793,453 @@ GET /_msearch
 {"index": ""}
 {"query": {"match_all": {}}}
 ```
+
+### Mapping 映射
+
+#### 1.Mapping 简介
+
+##### 1.1mapping是什么
+
+ES中的mapping有点类似于关系数据库中表结构的概念，在MySQL中，表结构里包含了字段名称，字段的类型还有索引信息等。在Mapping里也包含了一些属性，比如字段名称、类型、字段使用的分词器，是否评分、是否创建索引等属性，并且在ES中一个字段可以有多个类型。
+
+##### 1.2如何查看索引映射
+
+查看完整的索引mapping
+
+GET index_name/_mapping
+
+查看索引中指定字段的mapping
+
+GET index_name/_mapping/field/field_name
+
+#### 2.动态mapping(dynamic mapping)
+
+当你是一个新手的时候你可以使用动态映射，ES会在你添加一个文档的时候自动添加一个映射字段。生产环境不建议使用动态映射
+
+#### 3.手动映射：explicit mapping
+
+手动映射顾名思义就是允许你去选择映射的定义，例如：字段类型、日期格式、自定义控制新增字段的动态映射。
+
+##### 3.1 手动创建映射
+
+```bash
+#手动创建映射
+PUT good2
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "fielddata": true
+      }
+    }
+  }
+}
+
+#修改映射，字段类型，分词器等都不允许修改
+PUT good2/_mapping
+{
+  "properties": {
+    "title": {
+      "type": "text",
+      "fielddata": true
+    }
+  }
+}
+```
+
+### 4.ES数据类型
+
+#### 4.1概述
+
+每个字段都有字段数据类型或字段类型。其大致分为两种：**会被分词的字段和不会被分词的字段类型。**
+
+- 会被分词的类型：text、match、only_text等
+
+- 不会被分词的类型：keyword、数值类型等
+
+当然数据类型的划分可以分为很多种，比如按照**基本数据类型和复杂数据类型**来划分
+
+#### 4.2ES支持的数据类型
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2023-01-09-17-27-59-image.png)
+
+### 5.Mapping的参数
+
+- coerce 是否允许强制转换，只对数字起作用
+  
+  ```console
+  # 是否允许强制转换 coerce 默认true
+  PUT good_properties_coerce
+  {
+    "mappings": {
+      "properties": {
+        "title":{
+          "type": "integer",
+          "coerce": true
+        }
+      }
+    }
+  }
+  
+  DELETE good_properties_coerce
+  
+  GET good_properties_coerce
+  
+  GET good_properties_coerce/_source/2
+  
+  PUT good_properties_coerce/_doc/2
+  {
+    "title":"1"
+  }
+  
+  #另外一种写法，coerce只对数字强制转换
+  
+  PUT coerce_test
+   {
+   "settings": {
+   "index.mapping.coerce": false
+   },
+   "mappings": {
+   "properties": {
+   "number_one":{
+   "type": "integer"
+   },
+   "number_two":{
+   "type": "long"
+   }
+   }
+   }
+   }
+  
+  GET coerce_test
+  
+  PUT coerce_test/_doc/1
+   {  
+  "number_one":1,
+   "number_two":"2"
+   }
+  GET coerce_test/_doc/1
+  ```
+
+- copy_to 将某个属性值拷贝到某个属性里
+
+```json
+# copy_to 演示
+PUT copy_to_test
+{
+  "mappings": {
+    "properties": {
+      "first_name":{
+        "type": "text",
+        "copy_to": "full_name"
+      },
+      "last_name":{
+        "type": "text",
+        "copy_to": "full_name"
+      },
+      "full_name":{
+        "type": "text"
+      }
+    }
+  }
+}
+
+PUT copy_to_test/_doc/2
+{
+  "first_name":"san",
+  "last_name":"li"
+}
+
+GET copy_to_test
+
+GET copy_to_test/_search
+{
+  "query": {
+    "match": {
+      "full_name":"san zhang"
+    }
+  }
+}
+```
+
+- doc_values
+
+- dynamic 是否可以动态添加新字段
+
+- enabled
+  
+  ```bash
+  # enabled 创建索引的时候使用的话不会对其创建倒排索引，不支持全局搜索
+  
+  PUT test_enable
+  {
+    "mappings": {
+      "enabled":false
+    }
+  }
+  
+  PUT test_enable/_doc/1
+  {
+    "title":"标题1",
+    "content":"内容1"
+  }
+  
+  PUT test_enable/_doc/2
+  {
+    "title":"标题2",
+    "content":"内容2"
+  }
+  
+  GET test_enable/_search
+  
+  GET test_enable/_search
+  {
+    "query": {
+      "match": {
+        "title": "标题"
+      }
+    }
+  }
+  
+  DELETE test_enable
+  ```
+
+- fields 为一个字段指定多个子字段
+  
+  ```bash
+  PUT test_fields
+  {
+    "mappings": {
+      "properties": {
+        "address": {
+          "type": "text",
+          "fields": {
+            "provice": {
+              "type": "text",
+              "analyzer": "english"
+            },
+            "city": {
+              "type": "keyword",
+              "ignore_above": 10  # 超过长度会被忽略
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  POST test_fields/_doc
+  {
+    "address":"China Hebei"
+  }
+  
+  GET test_fields
+  
+  GET test_fields/_search
+  {
+    "query": {
+      "match": {
+        "address.provice": "China"
+      }
+    }
+  }
+  
+  DELETE test_fields
+  ```
+
+- index
+  
+  ```bash
+  PUT test_index
+  {
+    "mappings": {
+      "properties": {
+        "name":{
+          "type": "text",
+          "index": false
+        },
+        "desc":{
+          "type": "text"
+        }
+      }
+    }
+  }
+  
+  POST test_index/_doc
+  {
+    "name":"zhangsan",
+    "desc":"这是张三"
+  }
+  
+  GET test_index/_search
+  
+  GET test_index/_search
+  {
+    "query": {
+      "match": {
+        "desc": "张"
+      }
+    }
+  }
+  ```
+
+- norms 是否禁用评分
+
+### 6.date类型
+
+```bash
+PUT test_date
+{
+  "mappings": {
+    "properties": {
+      "name":{
+        "type": "text"
+      },
+      "create_date":{
+        "type": "date",
+        "format": 
+            "yyyy-MM-dd||yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"
+
+      }
+    }
+  }
+}
+
+
+GET test_date
+
+POST test_date/_doc
+{
+  "name":"zhangsan",
+  "create_date":"2022-01-11 11:11:11"
+}
+
+POST test_date/_doc
+{
+  "name":"lisi",
+  "create_date":"2022-01-11"
+}
+
+POST test_date/_doc
+{
+  "name":"wangwu",
+  "create_date":"2022-01-11T00:00:00.000Z"
+}
+
+GET test_date/_search
+```
+
+### 7.分词器Text Analysis
+
+```bash
+# 分词器
+GET _analyze
+{
+  "text": ["What are you doing", "你在做什么？"],
+  "analyzer": "chinese"
+}
+
+
+# 切词器
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": ["uppercase"], 
+  "text": ["What are you doing?","www.baidu.com"]
+}
+
+
+# 自定义词项过滤器
+PUT test_analyzer_filter
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "my_filter": {
+          "type": "stop",
+          "stopwords": [
+            "www"
+          ],
+          "ignore_case": true
+        }
+      }
+    }
+  }
+}
+
+DELETE test_analyzer_filter
+
+GET test_analyzer_filter
+
+GET test_analyzer_filter/_analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "my_filter"
+  ],
+  "text": [
+    "www WWW DDD mmm baidu com"
+  ]
+}
+
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": ["stop"],
+  "text": ["a the what is a english"]
+}
+
+
+PUT test_analyzer_synonym
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "my_synonym":{
+          "type":"synonym",
+          "synonyms":["a,b,c=>d"]
+        }
+
+      }
+    }
+  }
+}
+DELETE test_analyzer_synonym
+
+PUT test_analyzer_synonym1
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "my_synonym":{
+          "type":"synonym",
+          "synonyms":["a,b,c,d"]
+        }
+      }
+    }
+  }
+}
+
+DELETE test_analyzer_synonym1
+
+GET test_analyzer_synonym
+
+GET test_analyzer_synonym1/_analyze
+{
+  "tokenizer": "standard",
+  "filter": ["my_synonym"],
+  "text": ["b"]
+}
+```
+
+### IK分词器热词加载
+
+- 通过配置文件扩展，但是需要配置完成之后重启ElasticSearch
+
+- 通过远程加载更新Remote
+
+- 通过Mysql进行热词更新
 
 ### ES检索原理分析
 
@@ -900,9 +1398,48 @@ match_phrase查询分析文本并根据分析的文本创建一个短语查询�
 
 如何解决词条间隔的问题？可以借助slop参数，slop参数告诉match_phrase查询词条能够相隔多远时仍然将文档是为匹配。
 
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2023-01-31-14-46-12-image.png)
+
+```json
+GET movies/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query": "的 故事"
+      }
+    }
+  }
+}
+
+GET movies/_search
+{
+  "query": {
+    "match_phrase_prefix": {
+      "content": {
+        "query": "的 故事",
+        "slop": 2
+      }
+    }
+  }
+}
+```
+
 #### 多字段查询multi_match
 
 可以根据字段类型，决定是否使用分词查询，得分最高排在最前面
+
+```bash
+GET good/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "这是",
+      "fields": ["name","desc"]
+    }
+  }
+}
+```
 
 #### query_string
 
@@ -1197,3 +1734,1172 @@ GET /es_db/_search
   }
 }
 ```
+
+#### 映射
+
+```json
+{
+    "properties":{
+        "name":{
+            "type":"text", //可以分词的
+            "index":"true" //可以索引
+        },
+        "sex":{
+            "type":"keyword", //关键字，不可以分词
+            "index":"true" //可以索引
+        },
+        "tel":{
+            "type":"keyword", //可以分词的
+            "index":"false" //可以索引
+        }
+    }
+}
+```
+
+## 聚合查询
+
+语法：
+
+GET index_name/_search
+
+{
+
+    "aggs":{    
+
+            "<aggs_name>": {
+
+                    "<aggs_type>":{    
+
+                            "field":"<field_name>"                    
+
+                       }
+
+                }
+
+    }
+
+}
+
+### 分桶聚合 Bucket aggregations
+
+例如：统计不同分类的电影名字
+
+```json
+GET movies/_search
+{
+  "size": 0, 
+  "aggs": {
+    "aggs_type": {
+      "terms": {
+        "field": "type.keyword",
+        "size": 100
+      }
+    }
+  }
+}
+```
+
+### 指标聚合 Metrics aggregations
+
+最大值、最小值、平均值、求和等
+
+```json
+# 指标聚合查询
+GET good/_search
+{
+  "size": 0,
+  "aggs": {
+    "aggs_max": {
+      "max": {
+        "field": "price"
+      }
+    },
+    "aggs_min":{
+      "min": {
+        "field": "price"
+      }
+    },
+    "aggs_avg":{
+      "avg": {
+        "field": "price"
+      }
+    }
+  }
+}
+另一种查看所有指标
+
+GET good/_search
+{
+  "size": 0, 
+  "aggs": {
+    "price_avg_min": {
+      "stats": {
+        "field": "price"
+      }
+    }
+  }
+}
+
+
+# 去重
+GET movies/_search
+{
+  "size": 0, 
+  "aggs": {
+    "name_count": {
+      "cardinality": {
+        "field": "name.keyword"
+      }
+    }
+  }
+}
+```
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2023-01-28-15-46-23-image.png)
+
+### 管道聚合 Pipeline aggregations
+
+对聚合结果的二次聚合
+
+通过平均价格最低和最高的电影分类
+
+```json
+GET movies/_search
+{
+  "size": 0,
+  "aggs": {
+    "movie_type": {
+      "terms": {
+        "field": "type.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "avg_price": {
+          "avg": {
+            "field": "price"
+          }
+        }
+      }
+    },
+    "price_avg_min": {
+      "min_bucket": {
+        "buckets_path": "movie_type>avg_price"
+      }
+    },
+    "price_avg_max": {
+      "max_bucket": {
+        "buckets_path": "movie_type>avg_price"
+      }
+    }
+  }
+}
+```
+
+![](C:\Users\20220509\AppData\Roaming\marktext\images\2023-01-28-16-11-54-image.png)
+
+### 嵌套聚合
+
+统计不同种类的电影的不同级别的价格情况
+
+```json
+GET movies/_search
+{
+  "size": 0,
+  "aggs": {
+    "type_lv_price": {
+      "terms": {
+        "field": "type.keyword"
+      },
+      "aggs": {
+        "lv": {
+          "terms": {
+            "field": "level.keyword",
+            "size": 10
+          }
+        },
+        "price": {
+          "stats": {
+            "field": "price"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 基于查询结果的聚合
+
+- 从警匪片中找到价格最贵的电影
+
+```json
+GET movies/_search
+{
+  "query": {
+    "match": {
+      "type": "警匪"
+    }
+  },
+  "aggs": {
+    "price_max_agg": {
+      "max": {
+        "field": "price"
+      }
+    }
+  }
+}
+```
+
+```json
+# 查询警匪片价格在10和50之间的电影，并且查询最小值
+GET movies/_search
+{
+  "query": {
+    "match": {
+      "type.keyword": "警匪"
+    }
+  },
+  "aggs": {
+    "prices": {
+      "terms": {
+        "field": "price",
+        "size": 10
+      }
+    },
+    "min_price":{
+      "min": {
+        "field": "price"
+      }
+    }
+  },
+  "post_filter": {
+    "range": {
+      "price": {
+        "gte": 10,
+        "lte": 50
+      }
+    }
+  }
+}
+
+结果展示：
+
+{
+  "took": 14,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 3,
+      "relation": "eq"
+    },
+    "max_score": 1.3291358,
+    "hits": [
+      {
+        "_index": "movies",
+        "_id": "11",
+        "_score": 1.3291358,
+        "_source": {
+          "name": "神探大战",
+          "content": "神探间的混战",
+          "level": "4",
+          "type": "警匪",
+          "price": 50
+        }
+      },
+      {
+        "_index": "movies",
+        "_id": "12",
+        "_score": 1.3291358,
+        "_source": {
+          "name": "猎豹出击",
+          "content": "历史剧",
+          "level": "3",
+          "type": "警匪",
+          "price": 30
+        }
+      },
+      {
+        "_index": "movies",
+        "_id": "14",
+        "_score": 1.3291358,
+        "_source": {
+          "name": "飞虎队",
+          "content": "飞虎队英雄事迹",
+          "level": "4",
+          "type": "警匪",
+          "price": 10
+        }
+      }
+    ]
+  },
+  "aggregations": {
+    "min_price": {
+      "value": 10
+    },
+    "prices": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": 10,
+          "doc_count": 1
+        },
+        {
+          "key": 30,
+          "doc_count": 1
+        },
+        {
+          "key": 50,
+          "doc_count": 1
+        },
+        {
+          "key": 130,
+          "doc_count": 1
+        }
+      ]
+    }
+  }
+}
+```
+
+### 聚合排序
+
+```json
+# 影片分类价格最低价排序
+
+GET movies/_search
+{
+  "aggs": {
+    "price_aggs": {
+      "terms": {
+        "field": "type.keyword",
+        "order": {
+          "price_state_aggs>stats_aggs.min": "desc"
+        }
+      },
+      "aggs": {
+        "price_state_aggs": {
+          "filter": {
+            "range": {
+              "price": {
+                "gt": 20
+              }
+            }
+          },
+          "aggs": {
+            "stats_aggs": {
+              "stats": {
+                "field": "price"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### histogram 直方图 或 柱状图
+
+```json
+# missing是空值的会默认成90
+GET movies/_search?size=0
+{
+  "aggs": {
+    "price_aggs": {
+      "histogram": {
+        "field": "price",
+        "interval": 20,
+        "keyed": true,
+        "missing": 90, 
+        "order": {
+          "_count": "asc"
+        }
+      }
+    }
+  }
+}
+
+
+结果展示：
+{
+  "took": 12,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 17,
+      "relation": "eq"
+    },
+    "max_score": null,
+    "hits": []
+  },
+  "aggregations": {
+    "price_aggs": {
+      "buckets": {
+        "80.0": {
+          "key": 80,
+          "doc_count": 1
+        },
+        "100.0": {
+          "key": 100,
+          "doc_count": 1
+        },
+        "120.0": {
+          "key": 120,
+          "doc_count": 1
+        },
+        "0.0": {
+          "key": 0,
+          "doc_count": 2
+        },
+        "60.0": {
+          "key": 60,
+          "doc_count": 2
+        },
+        "40.0": {
+          "key": 40,
+          "doc_count": 4
+        },
+        "20.0": {
+          "key": 20,
+          "doc_count": 6
+        }
+      }
+    }
+  }
+}
+```
+
+- data_histogram
+
+- auto_histogram
+  
+  同理
+
+### Percentile 百分位统计 或 饼状图
+
+```json
+#价格所占百分比
+GET movies/_search
+{
+  "aggs": {
+    "percentile_price_aggs": {
+      "percentiles": {
+        "field": "price",
+        "percents": [
+          1,
+          5,
+          25,
+          50,
+          75,
+          95,
+          99,100
+        ]
+      }
+    }
+  }
+}
+
+执行结果：
+"aggregations": {
+    "percentile_price_aggs": {
+      "values": {
+        "1.0": 10,
+        "5.0": 10,
+        "25.0": 25,
+        "50.0": 35,
+        "75.0": 55,
+        "95.0": 120.99999999999999,
+        "99.0": 130,
+        "100.0": 130
+      }
+    }
+
+# 价格内的所占百分比
+GET movies/_search
+{
+  "aggs": {
+    "percentitles_price_aggs": {
+      "percentile_ranks": {
+        "field": "price",
+        "values": [
+          10,
+          15,
+          20,
+          50,
+          100,
+          200
+        ]
+      }
+    }
+  }
+}
+
+
+执行结果：
+  "aggregations": {
+    "percentitles_price_aggs": {
+      "values": {
+        "10.0": 6.25,
+        "15.0": 12.5,
+        "20.0": 18.75,
+        "50.0": 68.75,
+        "100.0": 91.07142857142857,
+        "200.0": 100
+      }
+    }
+  }
+```
+
+## Scripting脚本查询
+
+### ctx
+
+- 语法
+  
+  ctx._source.属性=值
+
+```json
+POST movies/_update/2
+{
+  "script": {
+    "source": "ctx._source.price-=1"
+  }
+}
+
+# 简写
+POST movies/_update/2
+{
+  "script": "ctx._source.price-=ctx._version"
+}
+```
+
+### Scripting的增删改查
+
+```json
+# upsert 如果存在更新，不存在新增数据
+POST movies/_update/2
+{
+  "script": {
+    "source": "ctx._source.price+=2"
+  },
+  "upsert": {
+     "name": "上海滩",
+    "content": "上海滩腥风血雨",
+    "level": "2",
+    "type": "枪战片",
+    "price": 24
+  }
+}
+#参数化
+POST movies/_update/2
+{
+  "script": {
+    "source": "ctx._source.price+=(params.price_param)",
+    "params": {
+      "price_param": 2
+    }
+  }
+}
+两段代码效果相同
+```
+
+打折出售
+
+```json
+# 打折售卖
+GET movies/_search
+{
+  "script_fields": {
+    "price": {
+      "script": {
+        "source": "doc.price.value"
+      }
+    },
+    "discount_price": {
+      "script": {
+        "source": "[doc['price'].value * params['discount_9'],doc['price'].value * params['discount_8'],doc['price'].value * params['discount_7']]",
+        "params": {
+          "discount_9": 0.9,
+          "discount_8": 0.8,
+          "discount_7": 0.7
+        }
+      }
+    }
+  }
+}
+```
+
+```json
+# 创建一个脚本
+# 语法POST _scripts/id {"script":{"lang":"painless","source":""}}
+POST _scripts/calculation_discount
+{
+  "script": {
+    "lang": "painless",
+    "source": "[doc['price'].value * params['discount_9'],doc['price'].value * params['discount_8'],doc['price'].value * params['discount_7']]"
+  }
+}
+
+# 查看
+GET _scripts/calculation_discount
+
+# 调用脚本
+GET movies/_search
+{
+  "script_fields": {
+    "movie_price":{
+      "script":{
+        "source": "doc.price.value"
+      }
+    },
+    "movie_price_discount": {
+      "script": {
+        "id": "calculation_discount",
+        "params": {
+          "discount_9":0.9,
+          "discount_8":0.8,
+          "discount_7":0.7
+        }
+      }
+    }
+  }
+}
+```
+
+```json
+# 多行脚本
+POST movies/_update/1
+{
+  "script": {
+    "source": """
+      if(ctx._source.price==100){
+        ctx._source.price-=10
+      }else{
+         ctx.op="noop"
+      }
+    """
+  }
+}
+
+# 价格小于100 的，价格是90 的电影的票价和
+GET movies/_search
+{
+  "query": {
+    "range": {
+      "price": {
+        "lt": 100
+      }
+    }
+  },
+  "aggs": {
+    "less_100_agg": {
+      "sum": {
+        "script": {
+          "lang": "painless", 
+          "source": """
+            long p=doc['price'].value;
+            if(doc['price'].value==50){
+              return p;
+            }
+            return 0;
+          """
+        }
+      }
+    }
+  }
+}
+```
+
+## 模糊查询
+
+### 1. 前缀搜索
+
+概念：以XXX开头的搜索，不计算相关度评分
+
+**注意**：
+
+- 前缀搜索匹配的是term(词项)，而不是field
+
+- 前缀搜索的性能很差
+
+- 前缀搜索没有缓存
+
+- 前缀搜索尽可能把前缀长度设置的更长
+
+语法：
+
+GET index_name/_search
+
+{    
+
+        "query":{
+
+            "prefix":{
+
+                   "field_name":{
+
+                            "value":"word_prefix"
+
+                     }            
+
+            }
+
+        }
+
+ }
+
+```json
+GET movies/_search
+{
+  "query": {
+    "prefix": {
+      "name": {
+        "value": "上海滩"
+      }
+    }
+  }
+}
+
+
+#搜索上海滩开头的词项（分词后以上海滩开头的）
+#所以创建索引要指定分词器，要不然默认分词器会把中文拆成一个一个的
+```
+
+### 2. 通配符 wildcard
+
+**概念：通配符运算符是匹配一个或多个字符的占位符。例如：* 通配符匹配零个或多个字符。**
+
+注意：通配符匹配也是term
+
+语法：
+
+GET <index>/_search
+
+{
+
+    "query":{
+
+        "wildcard":{
+
+            "<field>":{
+
+                     "value":"<word_with_wildcard>"
+
+            }
+
+        }
+
+    }
+
+}
+
+```json
+GET movies/_search
+{
+  "query": {
+    "wildcard": {
+      "name": {
+        "value": "*子弹*"
+      }
+    }
+  }
+}
+```
+
+### 3. 正则表达式
+
+语法：
+
+GET /_search
+
+{
+
+    "query":{
+
+        "regexp":{
+
+            "<field>":”正则表达式“
+
+        }
+
+    }
+
+}
+
+### 4. 模糊查询 fuzzy
+
+例子：
+
+```json
+GET movies/_search
+{
+  "query": {
+    "fuzzy": {
+      "name": {
+        "value": "弹子",
+        "fuzziness": 1
+      }
+    }
+  }
+}
+
+
+GET movies/_search
+{
+  "query": {
+    "match": {
+      "name": {
+        "query":"子弹大",
+        "fuzziness": 1
+      }
+    }
+  }
+}
+```
+
+### 5.ngram和edge ngram
+
+```json
+GET _analyze
+{
+  "tokenizer": "edge_ngram",
+  "text": ["zhangsan is a good boy"]
+}
+#返回结果
+{
+  "tokens": [
+    {
+      "token": "z",
+      "start_offset": 0,
+      "end_offset": 1,
+      "type": "word",
+      "position": 0
+    },
+    {
+      "token": "zh",
+      "start_offset": 0,
+      "end_offset": 2,
+      "type": "word",
+      "position": 1
+    }
+  ]
+}
+```
+
+## Suggester
+
+### 1.term Suggester
+
+```json
+POST <index>/_search
+{
+    "suggest":{
+        "suggest_name":{
+            "text":"value",
+             "term":{
+                "field":"field_name"
+            }
+        }
+    }
+}
+
+例子：
+POST _bulk
+{"index":{"_index":"english_word","_id":1}}
+{"title":"zhangsan lisi wangwu zhaoliu zhouqi zhengba"}
+{"index":{"_index":"english_word","_id":2}}
+{"title":"zhanger lisan wangsi zhaoqi zhouliu zhengba"}
+{"index":{"_index":"english_word","_id":3}}
+{"title":"zhangsi wangsi wangsan zhaoqi zhouwu zhengba"}
+
+GET english_word/_search
+{
+  "suggest": {
+    "english_suggester": {
+      "text": "zhangliu",
+      "term": {
+        "field": "title"
+      }
+    }
+  }
+}
+# 只有英文可以，中文不可以。返回结果
+
+{
+  "took": 7,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 0,
+      "relation": "eq"
+    },
+    "max_score": null,
+    "hits": []
+  },
+  "suggest": {
+    "english_suggester": [
+      {
+        "text": "zhangliu",
+        "offset": 0,
+        "length": 8,
+        "options": [
+          {
+            "text": "zhangsi",
+            "score": 0.71428573,
+            "freq": 1
+          },
+          {
+            "text": "zhaoliu",
+            "score": 0.71428573,
+            "freq": 1
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Java整合ES
+
+### 1、添加依赖
+
+```xml
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+            <version>8.4.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.13.4</version>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.json</groupId>
+            <artifactId>jakarta.json-api</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+```
+
+### 2、创建测试类
+
+// 创建ES客户端 连接
+
+```java
+   private static ElasticsearchClient connectES() {
+        RestClient restClient = RestClient.builder(new HttpHost("192.168.3.35", 9200)).build();
+        elasticsearchTransport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+        // 创建同步客户端
+        ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticsearchTransport);
+        // 创建异步客户端，异步客户端不用关闭
+        //ElasticsearchAsyncClient elasticsearchAsyncClient = new ElasticsearchAsyncClient(elasticsearchTransport);
+        return elasticsearchClient;
+    }
+```
+
+### 3、创建索引
+
+```java
+ private static void createIndex() {
+        try {
+            if (existsIndex()) {
+                System.out.println("索引已经存在");
+                return;
+            }
+            ElasticsearchClient elasticsearchClient = connectES();
+            CreateIndexResponse createResponse = elasticsearchClient.indices().create(c -> c.index("person"));
+            System.out.println("创建索引结果：" + createResponse.acknowledged());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                System.out.println("这里会执行吗？");
+                elasticsearchTransport.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+```
+
+### 4、索引是否存在
+
+```java
+  // 索引是否存在
+    private static boolean existsIndex() throws IOException {
+        ElasticsearchClient elasticsearchClient = connectES();
+        ExistsRequest existsRequest = new ExistsRequest.Builder().index("person").build();
+        return elasticsearchClient.indices().exists(existsRequest).value();
+    }
+```
+
+### 5、使用客户端查询
+
+```java
+   private static void getIndex() throws IOException {
+        ElasticsearchClient elasticsearchClient = connectES();
+        GetIndexResponse response = elasticsearchClient.indices().get(g -> g.index("person"));
+        System.out.println("查询结果" + response);
+        elasticsearchTransport.close();
+    }
+```
+
+### 6、删除索引
+
+```java
+    private static void deleteIndex() throws IOException {
+        ElasticsearchClient elasticsearchClient = connectES();
+        DeleteIndexResponse response = elasticsearchClient.indices().delete(d -> d.index("person"));
+        System.out.println("删除结果" + response.acknowledged());
+        elasticsearchTransport.close();
+    }
+```
+
+### 7、创建文档
+
+- 包含单个添加文档，批量添加文档，普通方式和lambda方式
+
+```java
+ // 添加文档
+    // 单个添加文档
+    private static void addDocument() throws IOException {
+        Person person = new Person();
+        person.setId(1001);
+        person.setName("Tom");
+        person.setAge(10);
+
+        ElasticsearchClient elasticsearchClient = connectES();
+//        CreateRequest createRequest = new CreateRequest.Builder<Person>().index("person").id("1001").document(person).build();
+//        CreateResponse createResponse = elasticsearchClient.create(createRequest);
+//        System.out.println("文档创建相应对象："+createResponse);
+        Result result = elasticsearchClient.create(req -> req.index("person").id("1001").document(person)).result();
+        System.out.println("文档创建相应对象：" + result);
+        elasticsearchTransport.close();
+    }
+
+    // 批量添加
+    private static void batchAddDocument() throws IOException {
+        ElasticsearchClient elasticsearchClient = connectES();
+
+//        List<BulkOperation> list = new LinkedList<>();
+//        for (int i=0; i<10; i++){
+//            CreateOperation<Person> createOperation = new CreateOperation.Builder<Person>().index("person")
+//                    .id("200"+i)
+//                    .document(new Person(2000+i, "Tom"+i, 20+i)).build();
+//            BulkOperation bulkOperation = new BulkOperation.Builder().create(createOperation).build();
+//            list.add(bulkOperation);
+//        }
+//        BulkRequest bulkRequest = new BulkRequest.Builder().operations(list).build();
+//        BulkResponse response = elasticsearchClient.bulk(bulkRequest);
+//        System.out.println("批量新增数据的相应："+response);
+
+//        lambda方式
+        List<Person> personList = new LinkedList<>();
+        for (int i = 0; i < 10; i++) {
+            personList.add(new Person(200 + i, "Tom" + i, 20 + i));
+        }
+        elasticsearchClient.bulk(req -> {
+            personList.forEach(p ->
+                    req.operations(b -> b.create(co -> co.index("person").id(p.getId().toString()).document(p)))
+            );
+            return req;
+        });
+        elasticsearchTransport.close();
+    }
+```
+
+### 8、查询文档
+
+```java
+ // 查询文档
+    private static void queryDocument(String field, String value) throws IOException {
+//        MatchQuery matchQuery = new MatchQuery.Builder()
+//                .field(field).query(value).build();
+//
+//        Query query = new Query.Builder().match(matchQuery).build();
+//        ElasticsearchClient elasticsearchClient = connectES();
+//        SearchRequest searchRequest = new SearchRequest.Builder().query(query).build();
+//        SearchResponse<Person> searchResponse = elasticsearchClient.search(searchRequest, Person.class);
+//        System.out.println(searchResponse);
+
+        //lambda表达式方式
+        ElasticsearchClient elasticsearchClient = connectES();
+        SearchResponse<Person> searchResponse = elasticsearchClient.search(req -> {
+            req.query(q -> q.match(m -> m.field(field).query(value)));
+            return req;
+        }, Person.class);
+        System.out.println(searchResponse);
+        elasticsearchTransport.close();
+    }
+```
+
+### 9、异步操作
+
+```java
+elasticsearchAsyncClient = new ElasticsearchAsyncClient(elasticsearchTransport);
+
+
+// 异步查询
+    private static void asyncExistsIndex() throws IOException {
+        connectES();
+        elasticsearchAsyncClient.indices().exists(req->req.index("person")).thenApply(BooleanResponse::value).whenComplete((response, error)->{
+            System.out.println("执行结果："+response);
+        });
+        System.out.println("主线程执行完毕...");
+    }
+```
+
+## EQL操作
+
+        EQL的全名是Event Query Language(EQL)。事件查询语言是一种基于时间的时间序列数据（例如日志，指标和跟踪）的查询语言。在Elastic Security 平台上，当输入有效的EQL时，查询会在数据节点上编译，执行查询并返回结果。这一切都快速、并行的发生，让用户立即看到结果。
+
+- EQL的优点
+
+- EQL使你可以表达事件之间的关系
+  
+  许多查询语言允许您匹配单个事件。EQL使用可以匹配不通事件类别和事件跨度的一系列事件。
+
+- EQL的学习曲线很低
+  
+  EQL语法看起来像其它常见查询语言，例如SQL。EQL是你可以直观的编写和读取查询，从而可以进行快速迭代的搜索。
+
+- EQL设计用于安全用例
+  
+  尽管你可以将其用于人任何基于事件的数据，但我们创建了EQL来进行来进行威胁搜寻。EQL不仅支持危害指标（IOC）搜索，而且可以描述IOC范围的活动。
+
+### SQL查询
+
+POST _sql?format=txt
+
+{
+
+"query":""""
+
+select * from "my-sql-index"
+
+""""
+
+}

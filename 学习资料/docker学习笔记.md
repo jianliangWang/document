@@ -141,3 +141,22 @@ USER
    ```docker
    docket inspect --format '{{.NetworkSettings.IPAddress}}' 容器id
    ```
+
+命令    用途
+docker pull    远程拉取image
+docker build    创建image
+docker images    列出本地所有的image
+docker run    运行容器container
+docker ps    列出当前运行的容器container
+docker rm    删除已经结束的容器container
+docker cp    在本地和容器之间拷贝文件
+docker commit    保存改动生成新的image
+docker rmi    删除image
+
+挂在配置文件
+
+docker run --name redis -v D:\data\redis\conf\redis.conf:/etc/redis/redis.conf -v D:\data\redis\data --restart=always -p 6666:6379 -d redis redis-server /etc/redis/redis.conf
+
+
+
+### docker Swarm
