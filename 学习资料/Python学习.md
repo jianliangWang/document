@@ -1467,3 +1467,22 @@ if __name__=='__main__':
 ```
 
 aiohttp
+
+## 8 selenium
+
+1. 安装pip install selenium
+2. 下载浏览器驱动： https://registry.npmmirror.com/binary.html?path=chromedriver/&spm=a2c6h.24755359.0.0.6d444dccDqLGnz
+3. 解压下载的浏览器驱动chromedriver 放到python解释器所在的文件夹
+4.  **/Library/Frameworks/Python.framework/Versions/3.10/bin->** 
+
+```python
+from selenium.webdriver import Chrome 
+#创建浏览器对象
+web = Chrome()
+#打开一个网址
+web.get("https://baidu.com")
+```
+
+
+
+python 清华源: https://pypi.tuna.tsinghua.edu.cn/simple 
