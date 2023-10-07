@@ -160,3 +160,26 @@ docker run --name redis -v D:\data\redis\conf\redis.conf:/etc/redis/redis.conf -
 
 
 ### docker Swarm
+
+### docker 安装mysql8
+
+- 查询mysql源
+
+  ~~~bash
+  docker search mysql
+  ~~~
+
+- 领取mysql镜像
+
+  ~~~ bash
+  docker pull mysql:latest
+  ~~~
+
+- 启动容器
+
+  ~~~ bash
+  docker run --restart=always --name mysql8 --privileged=true -d -p 3308:3306 -v D:\data\MySQL\conf\my.cnf:/etc/mysql/my.cnf -v D:\data\MySQL\logs:/logs -v D:\data\MySQL\data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=pay123321 mysql:latest
+  ~~~
+
+### docker配置阿里云镜像源
+
