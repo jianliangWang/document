@@ -183,3 +183,4 @@ docker run --name redis -v D:\data\redis\conf\redis.conf:/etc/redis/redis.conf -
 
 ### docker配置阿里云镜像源
 
+![image-20231007163712150](..\images\docker_mirror_aliyun.png)
