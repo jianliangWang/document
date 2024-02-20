@@ -1,5 +1,37 @@
 # git 上传项目详细步骤
 
+## 配置证书
+
+push到远程仓库的时候需要有认证，要使用ssh密钥认证，不要使用用户名密码
+
+这里针对本地有多个证书配置
+
+1. 生成密钥对
+
+   ssh-keygen -t rsa -C “xxxx@xxxx.com”(xxx为上一句输入的邮箱地址)语句，回车之后生成SSH key，后面出现让输入口令的语句，直接按回车即可，这样系统路径下就生成了两个文件：id_rsa和id_rsa.pub
+
+2. 将公钥配置到平台
+
+   ![](E:\github\document\images\git-set-rsakey.jpg)
+
+3. 将私钥配置到本地
+
+   本地可能有多个地址，所以我们需要进行配置，进入到用户.ssh目录
+
+   编辑config配置文件，如果没有该文件自己新建
+
+   ```bash
+   Host 10.10.13.111
+   PreferredAuthentications publickey
+   IdentityFile ~/.ssh/111_rsa
+   	
+   # host是你的git服务器地址
+   # IdentityFile 你刚刚生成的私钥的名字，多个文件所以需要修改名称，然后将私钥复制到对应目录下
+   # 如果是多个，将有多个Host和下面的配置
+   ```
+
+   
+
 ## 初始化
 
 1. git init
